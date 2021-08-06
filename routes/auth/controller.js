@@ -19,15 +19,44 @@ exports.register = async (req, res, next) => {
     const user = new User({ username });
     await user.setPassword(password);
     await user.save();
-    return res.json(user.serialize());
+    const token = user.generateToken();
+    return res.cookie("access_token", token, { maxAge: 1000 * 60 * 60 * 24 * 7, httpOnly: true }).json(user.serialize());
   } catch (error) {
     console.error(error);
     next(error);
   }
 };
 
-exports.login = async (req, res, next) => {};
+exports.login = async (req, res, next) => {
+  const { username, password } = req.body;
+  if (!username || !password) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  try {
+    const user = await User.findByUsername(username);
+    if (!user) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    const valid = await user.checkPassword(password);
+    if (!valid) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    const token = user.generateToken();
+    return res.cookie("access_token", token, { maxAge: 1000 * 60 * 60 * 24 * 7, httpOnly: true }).json(user.serialize());
+  } catch (error) {
+    console.error(error);
+    next(error);
+  }
+};
 
-exports.check = async (req, res, next) => {};
+exports.check = async (req, res, next) => {
+  const { user } = req.app.locals;
+  if (!user) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  return res.json(user);
+};
 
-exports.logout = async (req, res, next) => {};
+exports.logout = async (req, res, next) => {
+  return res.status(204).clearCookie("access_token").json({ success: true });
+};

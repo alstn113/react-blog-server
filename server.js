@@ -7,6 +7,7 @@ const dotenv = require("dotenv");
 dotenv.config();
 
 const apiRouter = require("./routes");
+const { jwtMiddleware } = require("./middlewares/jwtMiddleware");
 const connect = require("./schemas");
 
 const app = express();
@@ -18,6 +19,8 @@ app.use(express.static(path.join(__dirname, "public")));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser(process.env.COOKIE_SECRET));
+
+app.use(jwtMiddleware);
 
 app.use("/api", apiRouter);
 
