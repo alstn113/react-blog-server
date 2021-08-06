@@ -4,11 +4,10 @@ const morgan = require("morgan");
 const path = require("path");
 const dotenv = require("dotenv");
 
-const connect = require("./schemas");
-
 dotenv.config();
 
 const apiRouter = require("./routes");
+const connect = require("./schemas");
 
 const app = express();
 app.set("port", process.env.PORT || 3000);
