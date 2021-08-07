@@ -9,8 +9,8 @@ const PostSchema = new Schema({
   body: String,
   tags: [String],
   user: {
-    type: ObjectId,
-    ref: "User",
+    _id: ObjectId,
+    username: String,
   },
   createdAt: {
     type: Date,

@@ -7,7 +7,7 @@ const dotenv = require("dotenv");
 dotenv.config();
 
 const apiRouter = require("./routes");
-const { jwtMiddleware } = require("./middlewares/jwtMiddleware");
+const { jwtMiddleware } = require("./middlewares/authenticate");
 const connect = require("./schemas");
 
 const app = express();

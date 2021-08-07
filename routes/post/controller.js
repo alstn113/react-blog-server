@@ -18,6 +18,7 @@ exports.write = async (req, res, next) => {
       title,
       body,
       tags,
+      user: req.app.locals.user,
     });
     return res.json(post);
   } catch (error) {
@@ -34,18 +35,8 @@ exports.list = async (req, res, next) => {
     next(error);
   }
 };
-exports.read = async (req, res, next) => {
-  const { id } = req.params;
-  try {
-    const post = await Post.find({ _id: id });
-    if (!post) {
-      return res.status(404).json({ error: "Not Found" });
-    }
-    return res.json(post);
-  } catch (error) {
-    console.error(error);
-    next(error);
-  }
+exports.read = (req, res, next) => {
+  return res.json(req.app.locals.post);
 };
 exports.remove = async (req, res, next) => {
   const { id } = req.params;
@@ -80,13 +71,23 @@ exports.update = async (req, res, next) => {
   }
 };
 
-exports.checkObjectId = (req, res, next) => {
+exports.getPostById = async (req, res, next) => {
   const { ObjectId } = mongoose.Types;
   const { id } = req.params;
   if (!ObjectId.isValid(id)) {
     return res.status(400).json({ error: "Bad Request" });
   }
-  return next();
+  try {
+    const post = await Post.findById(id);
+    if (!post) {
+      return res.status(404).json({ error: "Not Found" });
+    }
+    req.app.locals.post = post;
+    return next();
+  } catch (error) {
+    console.error(error);
+    next(error);
+  }
 };
 
 exports.list = async (req, res, next) => {
@@ -94,13 +95,18 @@ exports.list = async (req, res, next) => {
   if (page < 1) {
     return res.status(400).json({ error: "Not Found" });
   }
+  const { tag, username } = req.query;
+  const query = {
+    ...(username ? { "user.username": username } : {}),
+    ...(tag ? { tags: tag } : {}),
+  };
   try {
-    const posts = await Post.find({})
+    const posts = await Post.find(query)
       .sort({ _id: -1 })
       .limit(10)
       .skip((page - 1) * 10)
       .lean();
-    const postCount = await Post.countDocuments();
+    const postCount = await Post.countDocuments(query);
     return res
       .set("Last-Page", Math.ceil(postCount / 10))
       .json(posts.map((post) => ({ ...post, body: post.body.length < 100 ? post.body : `${post.body.slice(0, 200)}...` })));
@@ -108,4 +114,12 @@ exports.list = async (req, res, next) => {
     console.error(error);
     next(error);
   }
+};
+
+exports.checkOwnPost = (req, res, next) => {
+  const { user, post } = req.app.locals;
+  if (post.user._id.toString() !== user._id) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+  return next();
 };
