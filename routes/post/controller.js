@@ -1,6 +1,19 @@
 const Post = require("../../schemas/post");
 const mongoose = require("mongoose");
 const Joi = require("joi");
+const sanitizeHtml = require("sanitize-html");
+
+const { ObjectId } = mongoose.Types;
+
+const sanitizeOption = {
+  allowedTags: ["h1", "h2", "b", "i", "u", "s", "p", "ul", "ol", "li", "blockquote", "a", "img"],
+  allowedAttributes: {
+    a: ["href", "name", "target"],
+    img: ["src"],
+    li: ["class"],
+  },
+  allowedSchemes: ["data", "http"],
+};
 
 exports.write = async (req, res, next) => {
   const schema = Joi.object().keys({
@@ -16,7 +29,7 @@ exports.write = async (req, res, next) => {
   try {
     const post = await Post.create({
       title,
-      body,
+      body: sanitizeHtml(body, sanitizeOption),
       tags,
       user: req.app.locals.user,
     });
@@ -59,8 +72,12 @@ exports.update = async (req, res, next) => {
   if (result.error) {
     return res.status(400).json(result.error);
   }
+  const nextData = { ...req.body };
+  if (nextData.body) {
+    nextData.body = sanitizeHtml(nextData.body, sanitizeOption);
+  }
   try {
-    const post = await Post.findOneAndUpdate({ _id: id }, req.body, { new: true });
+    const post = await Post.findOneAndUpdate({ _id: id }, nextData, { new: true });
     if (!post) {
       return res.status(404).json({ error: "Not Found" });
     }
@@ -72,7 +89,6 @@ exports.update = async (req, res, next) => {
 };
 
 exports.getPostById = async (req, res, next) => {
-  const { ObjectId } = mongoose.Types;
   const { id } = req.params;
   if (!ObjectId.isValid(id)) {
     return res.status(400).json({ error: "Bad Request" });
@@ -88,6 +104,11 @@ exports.getPostById = async (req, res, next) => {
     console.error(error);
     next(error);
   }
+};
+
+exports.removeHtmlAndShorten = (body) => {
+  const filtered = sanitizeHtml(body, { allowedTags: [] });
+  return filtered.length < 200 ? filtered : `${filtered.slice(0, 200)}...`;
 };
 
 exports.list = async (req, res, next) => {
@@ -107,9 +128,7 @@ exports.list = async (req, res, next) => {
       .skip((page - 1) * 10)
       .lean();
     const postCount = await Post.countDocuments(query);
-    return res
-      .set("Last-Page", Math.ceil(postCount / 10))
-      .json(posts.map((post) => ({ ...post, body: post.body.length < 100 ? post.body : `${post.body.slice(0, 200)}...` })));
+    return res.set("Last-Page", Math.ceil(postCount / 10)).json(posts.map((post) => ({ ...post, body: this.removeHtmlAndShorten(post.body) })));
   } catch (error) {
     console.error(error);
     next(error);

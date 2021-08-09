@@ -13,7 +13,6 @@ exports.jwtMiddleware = async (req, res, next) => {
       const token = user.generateToken();
       res.cookie("access_token", token, { maxAge: 1000 * 60 * 60 * 24 * 7, httpOnly: true });
     }
-    console.log(decoded);
     return next();
   } catch (error) {
     return next();
